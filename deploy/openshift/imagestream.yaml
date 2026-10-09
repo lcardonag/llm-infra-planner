@@ -1,0 +1,9 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: llm-hardware-calculator
+  labels:
+    app.kubernetes.io/name: llm-hardware-calculator
+spec:
+  lookupPolicy:
+    local: true

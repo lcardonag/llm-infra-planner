@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-hardware-calculator
+  labels:
+    app.kubernetes.io/name: llm-hardware-calculator
+spec:
+  selector:
+    app: llm-hardware-calculator
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

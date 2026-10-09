@@ -1,0 +1,43 @@
+# Single OpenShift image. The Node stage only builds the SPA; the image
+# that remains is UBI nginx plus the static files.
+#
+#   ./deploy/deploy.sh podman
+#   ./deploy/deploy.sh openshift -n llmcalc
+
+FROM registry.access.redhat.com/ubi9/nodejs-20:latest AS builder
+
+USER 1001
+WORKDIR /opt/app-root/src
+
+COPY --chown=1001:0 package.json package-lock.json ./
+RUN npm ci --frozen-lockfile
+
+COPY --chown=1001:0 . .
+RUN npm run build
+
+FROM registry.access.redhat.com/ubi9/nginx-126:latest
+
+USER 0
+
+COPY nginx.openshift.conf /etc/nginx/nginx.conf
+COPY --from=builder --chown=1001:0 /opt/app-root/src/dist /opt/app-root/src
+
+# Group 0 must be able to read the app and write logs, the pid file, and
+# temp dirs. OpenShift runs as a random UID that is always in group 0.
+# nginx -t creates a root-owned pid file and mode-700 temp dirs. Remove them
+# and restore group-0 write access so an arbitrary UID can start the server.
+RUN chgrp -R 0 /opt/app-root /etc/nginx/nginx.conf /var/log/nginx /var/lib/nginx /run \
+    && chmod -R g=u /opt/app-root /var/log/nginx /var/lib/nginx /run \
+    && chmod g=u /etc/nginx/nginx.conf \
+    && nginx -t \
+    && rm -f /run/nginx.pid /var/log/nginx/access.log /var/log/nginx/error.log \
+    && chmod -R g=u /var/lib/nginx /var/log/nginx /run
+
+USER 1001
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8080/health || exit 1
+
+CMD ["/usr/libexec/s2i/run"]

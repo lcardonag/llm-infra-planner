@@ -171,7 +171,7 @@ The full calculator state (model, precision, KV precision, context, batch, mode,
 | Tables | TanStack Table v8 |
 | Icons | Lucide React |
 | Testing | Vitest + fast-check (property-based tests) |
-| Container | Docker (node:20-alpine → nginx:1.27-alpine) |
+| Container | Podman or Docker. Alpine nginx locally; UBI nginx on OpenShift |
 
 ---
 
@@ -215,27 +215,40 @@ npm run build
 
 ---
 
-## Docker
+## Podman and Docker
+
+Local Podman uses the Alpine image. OpenShift builds a separate UBI image on the cluster. Both are covered in [deploy/README.md](deploy/README.md).
+
+### Local Podman (Alpine)
 
 ```bash
-# Build and run
-docker build -t llm-hardware-calculator:latest .
-docker run -p 3000:80 llm-hardware-calculator:latest
-```
-
-```bash
-# Docker Compose (recommended)
-docker compose up -d
+podman machine start
+podman compose up -d --build
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-The production image is a two-stage build:
+```bash
+podman compose logs -f
+podman compose down
+```
 
-1. **Builder** — `node:20-alpine` installs dependencies and runs `npm run build`
-2. **Runner** — `nginx:1.27-alpine` serves static assets with gzip, 1-year immutable cache for hashed assets, SPA routing, and rate limiting
+Docker uses the same compose file: `docker compose up -d --build`.
 
-Image size is approximately 25 MB.
+The image is a two-stage build: `node:20-alpine` compiles the app, then `nginx:1.27-alpine` serves it with gzip, a long cache for hashed assets, SPA routing, and rate limiting. The image is about 25 MB.
+
+### One command
+
+```bash
+# UBI image on local Podman, http://localhost:8080
+./deploy/deploy.sh podman
+
+# Build on the OpenShift cluster and roll out.
+# -n selects the project for this run. See deploy/README.md.
+./deploy/deploy.sh openshift -n llmcalc
+```
+
+The Podman command does not replace the Alpine container on port 3000.
 
 ---
 
@@ -266,6 +279,10 @@ scripts/
 ├── refresh-cloud-prices.ts
 ├── refresh-hardware.ts
 └── validate-data.ts    # Build-time JSON schema validation
+deploy/
+├── deploy.sh           # Build and run on Podman, or build on OpenShift and roll out
+├── README.md
+└── openshift/          # ImageStream, BuildConfig, Deployment, Service, Route
 ```
 
 ---

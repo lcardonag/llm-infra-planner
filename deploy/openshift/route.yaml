@@ -1,0 +1,15 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: llm-hardware-calculator
+  labels:
+    app.kubernetes.io/name: llm-hardware-calculator
+spec:
+  to:
+    kind: Service
+    name: llm-hardware-calculator
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
